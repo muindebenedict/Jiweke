@@ -1,0 +1,6 @@
+{
+  "name": "Jiweke",
+  "description": "WhatsApp AI assistant that helps Kenyan informal sector workers register with NSSF, manage savings, and check benefits in Swahili and English.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

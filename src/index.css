@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", var(--font-sans);
+  --font-mono: "Fira Code", monospace;
+  
+  --color-whatsapp-teal: #075e54;
+  --color-whatsapp-green: #25d366;
+  --color-whatsapp-light: #dcf8c6;
+  --color-whatsapp-bg: #ece5dd;
+}
+
+/* Custom styles for clean, polished widgets */
+.whatsapp-chat-bg {
+  background-color: #efeae2;
+  background-image: radial-gradient(#dfd9d0 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Hide scrollbar for clean administrative components */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
