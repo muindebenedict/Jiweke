@@ -76,8 +76,8 @@ def trigger_stk_push(phone_number, amount, account_reference):
             "ResponseDescription": "Success. Request accepted for processing on phone screen."
         }
 
-    # Safaricom STK Push Sandbox endpoint
-    url = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/query" # Or process endpoint
+    # Safaricom STK Push Sandbox endpoint (MINOR FIX 4 — Changed from /query to correct /processrequest URL)
+    url = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
     
     headers = {
         "Authorization": f"Bearer {token}",

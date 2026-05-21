@@ -406,8 +406,9 @@ def process_collect_dob(user, state, text):
         day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
         dob_dt = datetime(year, month, day)
         
-        # Calculate Age in 2026 (current time is 2026-05-20)
-        curr_year = 2026
+        # Calculate Age dynamically (MINOR FIX 3 — Replacing hardcoded 2026 with dynamic current year)
+        from datetime import datetime
+        curr_year = datetime.now().year
         age = curr_year - year
         if age < 18:
             if lang == "sw":
@@ -549,7 +550,8 @@ def process_confirm_details(user, state, text):
         user.date_of_birth = ctx.get("date_of_birth")
         user.occupation = ctx.get("occupation")
         user.county = ctx.get("county")
-        user.password = ctx.get("password")
+        # CRITICAL FIX 2: Hash user password securely using set_password instead of saving plain text
+        user.set_password(ctx.get("password"))
         user.nssf_number = mock_nssf
         user.registration_status = "complete"
         
@@ -606,7 +608,7 @@ def process_confirm_details(user, state, text):
 
 
 def process_check_balance(user, state, text):
-    """Calculates mock balance based on registration status."""
+    """Calculates dynamic balance based on real NSSF DB contributions history (MINOR FIX 5)."""
     lang = user.language_preference
     
     if user.registration_status != "complete":
@@ -623,33 +625,68 @@ def process_check_balance(user, state, text):
                 "Please choose Option *1* in the Main Menu to begin registration."
             )
             
-    # Mocking contributions database status
-    total_months = 4
-    total_amount = 2650.00
-    pension_estimates = 3200.00 # basic projected monthly returns
+    # Fetch real user contributions from the database instead of hardcoding (MINOR FIX 5)
+    from app.models import Contribution
+    contributions = Contribution.query.filter_by(phone_number=user.phone_number).all()
+    
+    # Calculate sum total of all deposits (MINOR FIX 5)
+    total_amount = sum(c.amount for c in contributions)
+    
+    # Extract unique months contributed based on year/month tuple grouping (MINOR FIX 5)
+    unique_months = {(c.timestamp.year, c.timestamp.month) for c in contributions if c.timestamp}
+    total_months = len(unique_months)
+    
+    # Calculate pension estimate using basic formula: (total_amount * 1.05) / 120 (MINOR FIX 5)
+    pension_estimates = (total_amount * 1.05) / 120.0 if total_amount > 0 else 0.0
     
     if lang == "sw":
-        return (
-            f"📊 *TAARIFA YA AKAUNTI YA NSSF YA {user.name.upper()}* 📊\n\n"
-            f"• *Nambari ya NSSF:* {user.nssf_number}\n"
-            f"• *Hali ya Akaunti:* Inafanya Kazi (Active)\n"
-            f"• *Jumla Kuu ya Michango:* Ksh {total_amount:,.2f} 💰\n"
-            f"• *Miezi Uliyochangia:* miezi {total_months}\n"
-            f"• *Kadirio la Pensheni kila mwezi (umri wa miaka 55+):* Ksh {pension_estimates:,.2f}/mwezi\n\n"
-            "💡 Unaweza kuongeza akiba yako sasa hivi! Changia kupitia Safaricom M-Pesa Paybill *200222*.\n\n"
-            "Tuma neno *menu* kurudi kwenye orodha kuu."
-        )
+        if total_amount == 0:
+            return (
+                f"📊 *TAARIFA YA AKAUNTI YA NSSF YA {user.name.upper()}* 📊\n\n"
+                f"• *Nambari ya NSSF:* {user.nssf_number}\n"
+                f"• *Hali ya Akaunti:* Inafanya Kazi (Active)\n"
+                f"• *Jumla Kuu ya Michango:* Ksh 0.00 💰\n"
+                f"• *Miezi Uliyochangia:* miezi 0\n"
+                f"• *Kadirio la Pensheni kila mwezi (umri wa miaka 55+):* Ksh 0.00/mwezi\n\n"
+                "🌱 *Bado hujaanza akiba yako ya NSSF!* Kwa kibindo salama cha uzeeni, chukua hatua ya kwanza leo.\n"
+                "Enda M-Pesa na utume mchango wako wa kwanza (hata KES 50 pekee) kupitia *Paybill Namba 200222*, ukiweka nambari yako ya NSSF kama namba ya akaunti!\n\n"
+                "Tuma neno *menu* kurudi kwenye orodha kuu."
+            )
+        else:
+            return (
+                f"📊 *TAARIFA YA AKAUNTI YA NSSF YA {user.name.upper()}* 📊\n\n"
+                f"• *Nambari ya NSSF:* {user.nssf_number}\n"
+                f"• *Hali ya Akaunti:* Inafanya Kazi (Active)\n"
+                f"• *Jumla Kuu ya Michango:* Ksh {total_amount:,.2f} 💰\n"
+                f"• *Miezi Uliyochangia:* miezi {total_months}\n"
+                f"• *Kadirio la Pensheni kila mwezi (umri wa miaka 55+):* Ksh {pension_estimates:,.2f}/mwezi\n\n"
+                "💡 Unaweza kuongeza akiba yako sasa hivi! Changia kupitia Safaricom M-Pesa Paybill *200222*.\n\n"
+                "Tuma neno *menu* kurudi kwenye orodha kuu."
+            )
     else:
-        return (
-            f"📊 *NSSF ACCOUNT STATEMENT FOR {user.name.upper()}* 📊\n\n"
-            f"• *NSSF Number:* {user.nssf_number}\n"
-            f"• *Account Status:* Active\n"
-            f"• *Total Contributed Savings:* KES {total_amount:,.2f} 💰\n"
-            f"• *Active Contribution Months:* {total_months} months\n"
-            f"• *Estimated Monthly Pension (at age 55 retirement):* KES {pension_estimates:,.2f}/month\n\n"
-            "💡 You can increase your savings right now! Simply chip in via M-Pesa Paybill *200222* with your NSSF number.\n\n"
-            "Type *menu* to return to the interactive dashboard."
-        )
+        if total_amount == 0:
+            return (
+                f"📊 *NSSF ACCOUNT STATEMENT FOR {user.name.upper()}* 📊\n\n"
+                f"• *NSSF Number:* {user.nssf_number}\n"
+                f"• *Account Status:* Active\n"
+                f"• *Total Contributed Savings:* KES 0.00 💰\n"
+                f"• *Active Contribution Months:* 0 months\n"
+                f"• *Estimated Monthly Pension (at age 55 retirement):* KES 0.00/month\n\n"
+                "🌱 *You haven't made any NSSF contributions yet!* Start growing your retirement seeds today.\n"
+                "Go to M-Pesa, use *Paybill Number 200222*, and enter your NSSF Number as the account number to make your first deposit (minimum KES 50)!\n\n"
+                "Type *menu* to return to the interactive dashboard."
+            )
+        else:
+            return (
+                f"📊 *NSSF ACCOUNT STATEMENT FOR {user.name.upper()}* 📊\n\n"
+                f"• *NSSF Number:* {user.nssf_number}\n"
+                f"• *Account Status:* Active\n"
+                f"• *Total Contributed Savings:* KES {total_amount:,.2f} 💰\n"
+                f"• *Active Contribution Months:* {total_months} months\n"
+                f"• *Estimated Monthly Pension (at age 55 retirement):* KES {pension_estimates:,.2f}/month\n\n"
+                "💡 You can increase your savings right now! Simply chip in via M-Pesa Paybill *200222* with your NSSF number.\n\n"
+                "Type *menu* to return to the interactive dashboard."
+            )
 
 
 def process_claim_guidance(user, state, text):
@@ -784,9 +821,8 @@ def process_login_id(user, state, text):
 
 def process_login_password(user, state, text):
     lang = user.language_preference
-    # Ezekiel/Mary fallback password "1234"
-    expected_password = user.password or "1234"
-    if text == expected_password:
+    # CRITICAL FIX 2: Verify the user's password using the check_password hashing comparator
+    if user.check_password(text):
         state.current_step = "main_menu"
         state.set_context({"authenticated": True})
         db.session.commit()

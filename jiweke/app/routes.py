@@ -15,12 +15,15 @@ from datetime import datetime
 
 def seed_demo_data():
     from app import db
-    from app.models import User, ConversationState, Message
+    # Added Contribution model import for seeding (MINOR FIX 5)
+    from app.models import User, ConversationState, Message, Contribution
     
     # Clean database first to avoid duplicate primary key violations on reseeding
     db.session.query(ConversationState).delete()
     db.session.query(Message).delete()
     db.session.query(User).delete()
+    # Delete seeded contributions to keep state fresh (MINOR FIX 5)
+    db.session.query(Contribution).delete()
     db.session.commit()
     
     # Seed 3 Demo Users
@@ -33,9 +36,11 @@ def seed_demo_data():
         county="Nairobi",
         nssf_number="NSSF-482910",
         registration_status="complete",
-        language_preference="sw",
-        password="1234"
+        language_preference="sw"
     )
+    # CRITICAL FIX 2 — Securely hash Ezekiel's demo password using set_password helper
+    u1.set_password("1234")
+
     u2 = User(
         phone_number="254722987654",
         name="Mary Wambui Mwangi",
@@ -45,9 +50,11 @@ def seed_demo_data():
         county="Nakuru",
         nssf_number="NSSF-739104",
         registration_status="complete",
-        language_preference="sw",
-        password="1234"
+        language_preference="sw"
     )
+    # CRITICAL FIX 2 — Securely hash Mary's demo password using set_password helper
+    u2.set_password("1234")
+
     u3 = User(
         phone_number="254733445566",
         name="Moses Omondi",
@@ -61,6 +68,19 @@ def seed_demo_data():
         password=None
     )
     db.session.add_all([u1, u2, u3])
+    db.session.commit()
+
+    # Seed Contributions for Ezekiel Kamau to start him off with a total of KES 2,650 (MINOR FIX 5)
+    c1 = Contribution(phone_number="254712345678", amount=500.0, timestamp=datetime(2026, 1, 15))
+    c2 = Contribution(phone_number="254712345678", amount=750.0, timestamp=datetime(2026, 2, 10))
+    c3 = Contribution(phone_number="254712345678", amount=600.0, timestamp=datetime(2026, 3, 5))
+    c4 = Contribution(phone_number="254712345678", amount=800.0, timestamp=datetime(2026, 4, 20))
+
+    # Seed Contributions for Mary Wambui Mwangi (MINOR FIX 5)
+    mc1 = Contribution(phone_number="254722987654", amount=1200.0, timestamp=datetime(2026, 2, 28))
+    mc2 = Contribution(phone_number="254722987654", amount=1450.0, timestamp=datetime(2026, 3, 25))
+
+    db.session.add_all([c1, c2, c3, c4, mc1, mc2])
     db.session.commit()
     
     # Seed their Conversation States
@@ -195,7 +215,8 @@ def change_language_simulator():
 @main_bp.route('/api/simulator/mpesa', methods=['POST'])
 def mpesa_simulator():
     from app import db
-    from app.models import User, Message
+    # MINOR FIX 5: Import Contribution to log the real-time voluntary contribution
+    from app.models import User, Message, Contribution
     data = request.get_json() or {}
     phone_number = data.get("phoneNumber")
     amount = data.get("amount")
@@ -204,6 +225,15 @@ def mpesa_simulator():
     if not user or user.registration_status != "complete":
         return jsonify({"error": "User must be completely registered first to save."}), 400
         
+    # MINOR FIX 5: Create a new Contribution entry in the database for dynamic balance updates
+    contrib = Contribution(
+        phone_number=phone_number,
+        amount=float(amount),
+        timestamp=datetime.utcnow()
+    )
+    db.session.add(contrib)
+    db.session.commit()
+
     # Log simulated STK Push Inbound
     m_in = Message(
         phone_number=phone_number,

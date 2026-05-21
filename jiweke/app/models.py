@@ -5,6 +5,8 @@
 from datetime import datetime
 import json
 from app import db
+# Import secure password hashing utilities to keep user credentials encrypted (CRITICAL FIX 2)
+from werkzeug.security import generate_password_hash, check_password_hash
 
 class User(db.Model):
     """
@@ -22,10 +24,27 @@ class User(db.Model):
     nssf_number = db.Column(db.String(30), nullable=True) # Assigned NSSF number (randomly generated mock)
     registration_status = db.Column(db.String(20), default="pending", nullable=False) # "pending", "in_progress", "complete"
     language_preference = db.Column(db.String(5), default="sw", nullable=False) # "sw" (Swahili) or "en" (English)
-    password = db.Column(db.String(100), nullable=True) # User-set password for security
+    password = db.Column(db.String(255), nullable=True) # Updated password column length to 255 to store the secure hash safely
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def set_password(self, raw_password):
+        """
+        Hashes the provided plain text password and stores it securely in the database (CRITICAL FIX 2).
+        """
+        if raw_password:
+            self.password = generate_password_hash(raw_password)
+        else:
+            self.password = None
+
+    def check_password(self, raw_password):
+        """
+        Verifies the provided plain text password against the securely stored hash (CRITICAL FIX 2).
+        """
+        if not self.password or not raw_password:
+            return False
+        return check_password_hash(self.password, raw_password)
 
     def to_dict(self):
         """Converts user instance database values to a dictionary."""
@@ -108,5 +127,29 @@ class Message(db.Model):
             "phone_number": self.phone_number,
             "direction": self.direction,
             "message_text": self.message_text,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None
+        }
+
+
+class Contribution(db.Model):
+    """
+    Model to track individual NSSF contributions made by users (MINOR FIX 5).
+    """
+    __tablename__ = 'contributions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    # Foreign key referencing User's phone_number
+    phone_number = db.Column(db.String(20), db.ForeignKey('users.phone_number'), nullable=False)
+    # The actual amount deposited by the user, stored as float
+    amount = db.Column(db.Float, nullable=False)
+    # The timestamp of when this deposit was processed
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def to_dict(self):
+        """Serializes contribution details for API or debugging use."""
+        return {
+            "id": self.id,
+            "phone_number": self.phone_number,
+            "amount": self.amount,
             "timestamp": self.timestamp.isoformat() if self.timestamp else None
         }

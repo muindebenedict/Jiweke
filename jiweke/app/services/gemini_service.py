@@ -40,7 +40,8 @@ def get_gemini_response(phone_number, user_message, step_context="", chat_histor
         logger.warning("GEMINI_API_KEY environment variable is not set. Falling back to local responses.")
         return None
         
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
+    # Query the Gemini API using gemini-2.0-flash model (Updated to address model name error)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
     
     # Format chat history and message
     # Convert history into Gemini contents format if present
