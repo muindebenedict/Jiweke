@@ -9,7 +9,7 @@ import random
 from datetime import datetime
 from app import db
 from app.models import User, ConversationState, Message
-from app.services.claude_service import get_claude_response
+from app.services.gemini_service import get_gemini_response
 from app.services.whatsapp_service import send_whatsapp_message
 
 logger = logging.getLogger(__name__)
@@ -311,9 +311,9 @@ def process_main_menu(user, state, text):
 
     else:
         # Check if the user typed an informational query instead of picking menu numbers
-        # If yes, we forward it to Claude AI!
-        logger.info("Forwarding menu input to Claude as a physical question.")
-        ai_reply = get_claude_response(user.phone_number, text, "User was at the Main Menu choice and asked: " + text)
+        # If yes, we forward it to Gemini AI!
+        logger.info("Forwarding menu input to Gemini as a standard question.")
+        ai_reply = get_gemini_response(user.phone_number, text, "User was at the Main Menu choice and asked: " + text)
         if ai_reply:
             return ai_reply
             
